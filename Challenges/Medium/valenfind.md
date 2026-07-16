@@ -1,17 +1,18 @@
-# valenfind security assessment
+# valenfind
 
 - [scope](#scope)
 - [reconnaissance and attack surface](#reconnaissance-and-attack-surface)
 - [security findings and validation](#security-findings-and-validation)
 - [impact and remediation](#impact-and-remediation)
 - [lessons learned](#lessons-learned)
+- [analyst notes](#analyst-notes)
 - [references](#references)
 
 ## scope
 
 ### authorization and objective
 
-Testing was conducted only against the TryHackMe ValenFind room instance provided for this assessment. The objective was to identify and safely validate web-application weaknesses. No credential brute-force activity was performed.
+Testing was conducted only against the TryHackMe ValenFind room instance provided for this assessment. The objective was to identify and safely validate web-application weaknesses within the authorized lab environment.
 
 ### room information
 
@@ -20,7 +21,7 @@ Testing was conducted only against the TryHackMe ValenFind room instance provide
 - Category: web
 - Subscription: free
 
-The room describes a newly created dating application that may contain security weaknesses. This report records the assessment evidence collected so far; it does not include flags, passwords, tokens, hashes, private keys, or reusable credentials.
+The room describes a newly created dating application that may contain security weaknesses.
 
 Room link: [TryHackMe ValenFind](https://tryhackme.com/room/lafb2026e10)
 
@@ -31,7 +32,7 @@ Room link: [TryHackMe ValenFind](https://tryhackme.com/room/lafb2026e10)
 - Additional exposed service: SSH on TCP/22
 - Testing context: authorized TryHackMe lab environment
 
-The screenshots supplied with the repository were reviewed individually. They were not embedded because the available candidates expose reusable authentication, authorization, database, or flag material, or document later testing outside the evidence boundary of this report. No repository redaction workflow was present.
+The screenshots below are room evidence. Sensitive values visible in captures are not repeated in the narrative, commands, or code blocks.
 
 ## reconnaissance and attack surface
 
@@ -67,13 +68,13 @@ Relevant results:
                      HTTP title: ValenFind - Secure Dating
 ```
 
-Version detection confirmed that TCP/5000 hosts the Python/Werkzeug web application rather than the initial UPnP classification. SSH remains a secondary attack surface, but no credentials are available and no SSH authentication testing has been performed.
+Version detection confirmed that TCP/5000 hosts the Python/Werkzeug web application rather than the initial UPnP classification. SSH remains a secondary attack surface; no SSH authentication testing was performed.
 
 ### web route discovery
 
 Web content discovery with Gobuster identified the `/login` route. This established the initial authentication surface for manual request analysis.
 
-The route accepts a login form and submits data using `POST` with the `application/x-www-form-urlencoded` content type. No additional public routes are asserted here because they have not yet been documented with supporting evidence.
+The route accepts a login form and submits data using `POST` with the `application/x-www-form-urlencoded` content type. No additional public routes are asserted here without supporting enumeration output.
 
 ### authentication flow analysis
 
@@ -86,42 +87,105 @@ Content-Type: application/x-www-form-urlencoded
 username=<test-username>&password=<redacted-test-value>
 ```
 
-The form parameters are `username` and `password`. Test values are intentionally omitted from this report.
-
-For an unsuccessful authentication attempt, the application returned an HTTP success status with a generic failure message:
+The form parameters are `username` and `password`. For an unsuccessful authentication attempt, the application returned an HTTP success status with a generic failure message:
 
 ```text
 HTTP/1.1 200 OK
 Invalid credentials
 ```
 
-The response did not distinguish an unknown username from an incorrect password. Username enumeration through distinct error messages was therefore not confirmed. The HTTP 200 status was interpreted together with the response body; it was not treated as evidence of successful authentication.
+![Burp Repeater login request and generic authentication failure](Images/Screenshot%20From%202026-07-16%2021-15-11.png)
+
+*Figure 1 — Burp Repeater shows the `POST /login` request and the application's generic `Invalid credentials` response.*
+
+The response did not distinguish an unknown username from an incorrect password. Username enumeration through distinct error messages was therefore not confirmed. The HTTP 200 status was interpreted together with the response body; it was not treated as evidence of successful authentication. No credential brute-force attack was performed.
 
 ## security findings and validation
 
-### current assessment status
+### finding 1: arbitrary local file read through the layout parameter
 
-No confirmed vulnerability has been established from the evidence documented in this report.
+**Status:** confirmed
 
-The generic `Invalid credentials` response is a positive defensive observation because it reduces direct username-enumeration signals in the error message. It does not, by itself, establish that the complete authentication implementation is secure.
+The `/api/fetch_layout` endpoint accepted traversal sequences in its `layout` parameter and returned files outside the intended template location. The captured responses demonstrated access to:
 
-### pending investigation notes
+- application source code;
+- the running process command line;
+- process environment data; and
+- `/etc/passwd`.
 
-The following activities remain pending and should be validated before assigning additional findings:
+![Application source code returned through layout traversal](Images/Screenshot%20From%202026-07-16%2021-36-32.png)
 
-- mapping public routes and application functionality;
-- inspecting client-side JavaScript for referenced endpoints or hidden functionality;
-- testing endpoint authorization and input-handling logic within the room scope;
-- reviewing session creation, cookie attributes, logout behavior, and session invalidation; and
-- comparing authentication responses using controlled, non-brute-force test cases.
+*Figure 2 — Application source code is returned through the `layout` parameter.*
 
-These are investigation areas, not confirmed vulnerabilities.
+![Process command line returned through layout traversal](Images/Screenshot%20From%202026-07-16%2021-36-39.png)
+
+*Figure 3 — The process command line is readable through the same file-fetch behavior.*
+
+![Process environment returned through layout traversal](Images/Screenshot%20From%202026-07-16%2021-36-41.png)
+
+*Figure 4 — Process environment data is exposed by the file-read behavior.*
+
+![System account file returned through layout traversal](Images/Screenshot%20From%202026-07-16%2021-36-44.png)
+
+*Figure 5 — `/etc/passwd` is readable through the vulnerable file path.*
+
+This confirms a path-traversal/local-file-read vulnerability and source disclosure. The response content also exposed implementation and host details that should not be available to an unauthenticated web client.
+
+### finding 2: administrative database export protected by disclosed authorization material
+
+**Status:** confirmed
+
+The disclosed application source contained an administrative database-export route, `/api/admin/export_db`, that checked a custom request header against a hard-coded authorization value. A subsequent request to the route returned a database backup, confirming that the export function was reachable with the disclosed lab value. The value is intentionally not reproduced here.
+
+![Administrative database export route in application source](Images/Screenshot%20From%202026-07-16%2021-58-40.png)
+
+*Figure 6 — The source defines the administrative database-export route and its custom-header check.*
+
+![Retrieved database backup from administrative export route](Images/Screenshot%20From%202026-07-16%2021-58-58.png)
+
+*Figure 7 — A request to the export route successfully retrieves the database backup.*
+
+![SQLite database backup file identification](Images/Screenshot%20From%202026-07-16%2021-59-06.png)
+
+*Figure 8 — The retrieved backup is identified as an SQLite database.*
+
+The issue is not merely the presence of an administrative endpoint: authorization material was embedded in application source and could be used to access a bulk data export. This creates a direct confidentiality risk for all records in the database.
+
+### finding 3: plaintext credentials and personal data in the exported database
+
+**Status:** confirmed
+
+Inspection of the exported `users` table showed a password column containing plaintext values alongside user profile data such as names, addresses, and other contact or biography fields.
+
+![Exported user records with plaintext password and profile fields](Images/Screenshot%20From%202026-07-16%2021-57-07.png)
+
+*Figure 9 — The exported user table contains plaintext password values and profile data.*
+
+Storing passwords in plaintext means a database disclosure immediately exposes reusable authentication material. The profile data also increases privacy impact. A record containing HTML-like input was observed, but script execution was not validated; stored cross-site scripting remains an investigation item rather than a confirmed finding.
+
+### pending validation
+
+The following areas should be tested before closing the assessment:
+
+- whether the file-read behavior is reachable without authentication in a fresh session;
+- whether any other endpoints expose or execute the disclosed source and environment data;
+- session creation, cookie attributes, logout behavior, and session invalidation;
+- rendering of user-controlled profile fields to validate or rule out stored XSS; and
+- rate limiting, account lockout, and other authentication abuse controls.
 
 ## impact and remediation
 
-Impact assessment and vulnerability-specific remediation remain pending until a weakness is confirmed. No speculative confidentiality, integrity, availability, or data-exposure impact is assigned at this stage.
+### impact
 
-The observed generic authentication error should be retained while the remaining authentication and session controls are assessed. Any later recommendation should be tied to reproducible evidence and the affected security boundary.
+The confirmed issues combine into a high-impact data-exposure chain: arbitrary local file read discloses source and host information; the source discloses administrative authorization material; and that material enables a database export containing plaintext credentials and personal data.
+
+### remediation
+
+- Replace file-path construction with an allowlist of fixed layout identifiers. Resolve paths server-side, reject traversal and absolute paths, and keep source code, process data, and system files outside any user-controlled file-fetch operation.
+- Remove hard-coded authorization values from source control and rotate the exposed value. Enforce authentication and authorization server-side for administrative exports, apply least privilege, and audit export access.
+- Store passwords using a modern adaptive password-hashing scheme such as Argon2id, bcrypt, or scrypt. Treat the exposed values as compromised and rotate affected lab credentials.
+- Minimize exported fields and protect sensitive personal data. Escape or sanitize user-controlled content at the correct output context before rendering it.
+- Add regression tests for traversal payloads, unauthenticated access to administrative routes, secret scanning, password storage, and profile-field rendering.
 
 ## lessons learned
 
@@ -129,10 +193,39 @@ The observed generic authentication error should be retained while the remaining
 - An HTTP 200 response does not necessarily indicate successful authentication.
 - Generic authentication errors reduce direct username-enumeration risk.
 - Manual request analysis should precede brute-force testing.
+- Source disclosure can turn a lower-level file-read issue into a direct administrative-access path.
+- Sensitive data exposure should be assessed across the full chain, not endpoint by endpoint only.
+
+## analyst notes
+
+Use this section to add your own observations and room-specific conclusions:
+
+### initial hypothesis
+
+_What first suggested that the application might be vulnerable?_
+
+### testing decisions
+
+_Why did you choose each next test, and what did you deliberately avoid?_
+
+### key turning point
+
+_Which observation most changed your understanding of the attack surface?_
+
+### personal takeaways
+
+_What would you repeat, change, or investigate further on a future assessment?_
+
+### final conclusion
+
+_Add your final assessment summary, including what was confirmed and what remains unvalidated._
 
 ## references
 
 - [TryHackMe ValenFind room](https://tryhackme.com/room/lafb2026e10)
 - [Nmap Reference Guide](https://nmap.org/book/man.html)
 - [OWASP Authentication Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html)
+- [OWASP Path Traversal](https://owasp.org/www-community/attacks/Path_Traversal)
+- [OWASP Cryptographic Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html)
+- [OWASP Cross Site Scripting Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html)
 - [Werkzeug documentation](https://werkzeug.palletsprojects.com/en/stable/)
