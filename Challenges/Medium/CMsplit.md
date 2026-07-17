@@ -169,30 +169,6 @@ The confirmed evidence shows a meaningful post-compromise chain: a web-service c
 - A privilege-escalation technique reference is not equivalent to a successful target compromise.
 - Evidence should distinguish user-level access, database exposure, and root-level impact.
 
-## analyst notes
-
-Use this section to add your own observations and room-specific conclusions:
-
-### initial hypothesis
-
-_What first suggested that the CMS or its supporting components might be vulnerable?_
-
-### testing decisions
-
-_Why did you choose each next test, and what did you deliberately avoid?_
-
-### key turning point
-
-_Which observation most changed your understanding of the attack path?_
-
-### personal takeaways
-
-_What would you repeat, change, or investigate further on a future assessment?_
-
-### final conclusion
-
-_Add your final summary, including what was confirmed, what remains unvalidated, and how the chain affected the target._
-
 ## references
 
 - [TryHackMe CMSpit room](https://tryhackme.com/room/cmspit)
