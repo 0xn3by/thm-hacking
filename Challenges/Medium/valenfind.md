@@ -196,30 +196,6 @@ The confirmed issues combine into a high-impact data-exposure chain: arbitrary l
 - Source disclosure can turn a lower-level file-read issue into a direct administrative-access path.
 - Sensitive data exposure should be assessed across the full chain, not endpoint by endpoint only.
 
-## analyst notes
-
-Use this section to add your own observations and room-specific conclusions:
-
-### initial hypothesis
-
-_What first suggested that the application might be vulnerable?_
-
-### testing decisions
-
-_Why did you choose each next test, and what did you deliberately avoid?_
-
-### key turning point
-
-_Which observation most changed your understanding of the attack surface?_
-
-### personal takeaways
-
-_What would you repeat, change, or investigate further on a future assessment?_
-
-### final conclusion
-
-_Add your final assessment summary, including what was confirmed and what remains unvalidated._
-
 ## references
 
 - [TryHackMe ValenFind room](https://tryhackme.com/room/lafb2026e10)
