@@ -141,30 +141,6 @@ If this traffic pattern existed on a production network, unencrypted surveillanc
 - Tool warnings should be separated from evidence about the capture itself.
 - Sensitive video and PCAP files require comparable confidentiality and integrity controls.
 
-## analyst notes
-
-Use this section to add your own observations and room-specific conclusions:
-
-### initial hypothesis
-
-_What first suggested that the PCAP contained recoverable footage rather than ordinary web traffic?_
-
-### testing decisions
-
-_Why did you inspect the HTTP stream and choose frame extraction as the next step?_
-
-### key turning point
-
-_Which observation confirmed that the extracted images represented a coherent sequence?_
-
-### personal takeaways
-
-_What would you repeat, change, or investigate further in a real forensic case?_
-
-### final conclusion
-
-_Add your final summary of the capture, recovered footage, evidence quality, and security implications._
-
 ## references
 
 - [TryHackMe Security Footage room](https://tryhackme.com/room/securityfootage)
